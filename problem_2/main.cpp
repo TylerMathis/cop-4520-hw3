@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <limits>
 #include <climits>
+#include <fstream>
 
 using std::atomic;
 using std::mutex;
@@ -16,8 +17,9 @@ using std::condition_variable;
 using std::vector;
 using std::thread;
 using std::sort;
-using std::cout;
+using std::cin; using std::cout;
 using std::min; using std::max;
+using std::ofstream;
 
 // Problem constants
 const int SENSORS = 8;
@@ -37,71 +39,142 @@ int main() {
 	// Seed our num gen
 	srand(time(NULL));
 
+	// Ask for time multiplier
+	cout << "Please enter a time multiplier: ";
+	double timeMultiplier; cin >> timeMultiplier;
+	int sleepMillis = 1000 / timeMultiplier;
+
+	// Empty out results
+	ofstream out("results.txt");
+	out.close();
+
+
 	// Hold all readings recorded per cycle
-	int readings[DATA_POINTS];
+	int readings[2][DATA_POINTS];
 
+	// We need to only start the program once our sensors have spun up
 	atomic<int> initCnt(0);
-	auto tempWriteJob = [&](int threadID) {
-		int curIter = 0;
-		bool isInit = false;
-		while (curIter < READINGS_PER_CYCLE) {
-			{
-				unique_lock lk(mtx);
-				if (!isInit) {
-					isInit = true;
-					initCnt++;
-				}
-				cv.wait(lk);
-			}
+	// Keep our current hour for dataframe swapping
+	atomic<int> curHour(0);
+	// Whether or not we should exit
+	atomic<bool> done = false;
 
-			int temp = (rand() % TEMP_UPPER + 1) - abs(LOW_TEMP);
-			readings[(curIter++ * SENSORS) + threadID] = temp;
+	// This is our main sensor simulator
+	// It waits for a notification from the main thread to take a reading,
+	// then does so and stores it's data in the log
+	auto tempWriteJob = [&](int threadID) {
+		while (true) {
+			int curIter = 0;
+			bool isInit = false;
+			while (curIter < READINGS_PER_CYCLE) {
+				{
+					unique_lock lk(mtx);
+					// Let main know that we are ready
+					if (!isInit) {
+						isInit = true;
+						initCnt++;
+					}
+					// Wait for notifications
+					cv.wait(lk);
+
+					// If we're done, stop
+					if (done)
+						return;
+				}
+
+				// Take the reading!
+				int temp = (rand() % TEMP_UPPER + 1) - abs(LOW_TEMP);
+				readings[curHour % 2][(curIter++ * SENSORS) + threadID] = temp;
+			}
 		}
 	};
 
+	auto tempAnalyzeJob = [&](int hour) {
+		// Open in append mode
+		out.open("results.txt", std::ios_base::app);
+
+		out << "Data log for hour: " << hour+1 << "\n";
+		int dataSeg = hour % 2;
+
+		// Sort and get mins and maxes
+		sort(readings[dataSeg], readings[dataSeg] + DATA_POINTS);
+		out << "MIN " << LOW_HI_BOUND << ": ";
+		for (int i = 0; i < LOW_HI_BOUND; i++)
+			out << readings[dataSeg][i] << "F ";
+		out << "\n";
+		out << "MAX " << LOW_HI_BOUND << ": ";
+		for (int i = DATA_POINTS - LOW_HI_BOUND; i < DATA_POINTS; i++)
+			out << readings[dataSeg][i] << "F ";
+		out << "\n";
+
+		// Find window of largest difference
+		int largestDiff = INT_MIN, largestDiffIdx = -1;
+		for (int i = 0; i < DATA_POINTS - (DIFF_INTERVAL * SENSORS); i++) {
+			int minTemp = INT_MAX, maxTemp = INT_MIN;
+			for (int j = i; j < i + (DIFF_INTERVAL * SENSORS); j++) {
+				minTemp = min(minTemp, readings[dataSeg][j]);
+				maxTemp = max(maxTemp, readings[dataSeg][j]);
+			}
+			int diff = maxTemp - minTemp;
+			if (diff > largestDiff) {
+				largestDiff = diff;
+				largestDiffIdx = i;
+			}
+		}
+
+		// Output it
+		out << "Largest difference window from mins [" <<
+			largestDiffIdx / SENSORS << ", " <<
+			(largestDiffIdx + (DIFF_INTERVAL * SENSORS)) / SENSORS <<
+			"]\n\n";
+
+		// Flush and close output
+		out.close();
+	};
+
+	// Start all sensors and wait for them to spin up
 	vector<thread> jobs;
 	for (int i = 0; i < SENSORS; i++)
 		jobs.emplace_back(tempWriteJob, i);
 	while (initCnt < SENSORS);
 
-	// Take readings 10 times a second
-	for (int i = 0; i < READINGS_PER_CYCLE; i++) {
-		cv.notify_all();
-		cout << "All sensors reading at time = " << i+1 << "\n";
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	// Main temp loop
+	bool keepGoing = true;
+	while (keepGoing) {
+		// Take all readings
+		for (int i = 0; i < READINGS_PER_CYCLE; i++) {
+			cv.notify_all();
+			cout << "\r";
+			cout.flush();
+			cout << "Taking reading at time: " << curHour+1 << ":" << i+1;
+			std::this_thread::sleep_for(std::chrono::milliseconds(sleepMillis));
+		}
+		cout << "\nLogging results for hour " << curHour+1 << " to file\n";
+
+		// Boot up the analyzer and let it run
+		thread analyzer(tempAnalyzeJob, curHour.load());
+		analyzer.detach();
+		curHour++;
+
+		// Ask the user if they want to keep simulating
+		// In practice, this would not be done, but is for the
+		// sake of a clean exit
+		char choice;
+		do {
+			cout << "Keep simulating? (y\\n): ";
+			cin >> choice;
+		} while (!(choice == 'y' || choice == 'n'));
+		keepGoing = choice == 'y';
 	}
-	for (auto &t : jobs)
+
+	// Clean up the threads
+	cout << "Cleaning up...\n";
+	done = true;
+	cv.notify_all();
+	for (thread &t : jobs)
 		t.join();
 
-	// Sort and get useful info
-	sort(readings, readings + DATA_POINTS);
-	cout << "MIN 5: ";
-	for (int i = 0; i < 5; i++)
-		cout << readings[i] << "F ";
-	cout << "\n";
-	cout << "MAX 5: ";
-	for (int i = DATA_POINTS - 6; i < DATA_POINTS; i++)
-		cout << readings[i] << "F ";
-	cout << "\n";
-
-	int largestDiff = INT_MIN, largestDiffIdx = -1;
-	for (int i = 0; i < DATA_POINTS - (DIFF_INTERVAL * SENSORS); i++) {
-		int minTemp = INT_MAX, maxTemp = INT_MIN;
-		for (int j = i; j < i + (DIFF_INTERVAL * SENSORS); j++) {
-			minTemp = min(minTemp, readings[j]);
-			maxTemp = max(maxTemp, readings[j]);
-		}
-		int diff = maxTemp - minTemp;
-		if (diff > largestDiff) {
-			largestDiff = diff;
-			largestDiffIdx = i;
-		}
-	}
-
-	cout << "Largest difference window from [" <<
-		largestDiffIdx / SENSORS << ", " <<
-		(largestDiffIdx + (DIFF_INTERVAL * SENSORS)) / SENSORS <<
-		"]\n";
+	cout << "Done! All results available in './results.txt'\n";
 
     return 0;
 }
