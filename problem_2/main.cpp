@@ -83,7 +83,7 @@ int main() {
 				}
 
 				// Take the reading!
-				int temp = (rand() % TEMP_UPPER + 1) - abs(LOW_TEMP);
+				int temp = (rand() % (TEMP_UPPER + 1)) - abs(LOW_TEMP);
 				readings[curHour % 2][(curIter++ * SENSORS) + threadID] = temp;
 			}
 		}
@@ -96,18 +96,7 @@ int main() {
 		out << "Data log for hour: " << hour+1 << "\n";
 		int dataSeg = hour % 2;
 
-		// Sort and get mins and maxes
-		sort(readings[dataSeg], readings[dataSeg] + DATA_POINTS);
-		out << "MIN " << LOW_HI_BOUND << ": ";
-		for (int i = 0; i < LOW_HI_BOUND; i++)
-			out << readings[dataSeg][i] << "F ";
-		out << "\n";
-		out << "MAX " << LOW_HI_BOUND << ": ";
-		for (int i = DATA_POINTS - LOW_HI_BOUND; i < DATA_POINTS; i++)
-			out << readings[dataSeg][i] << "F ";
-		out << "\n";
-
-		// Find window of largest difference
+		// Find window of largest difference before sorting
 		int largestDiff = INT_MIN, largestDiffIdx = -1;
 		for (int i = 0; i < DATA_POINTS - (DIFF_INTERVAL * SENSORS); i++) {
 			int minTemp = INT_MAX, maxTemp = INT_MIN;
@@ -122,8 +111,20 @@ int main() {
 			}
 		}
 
-		// Output it
-		out << "Largest difference window from mins [" <<
+		// Sort and get mins and maxes
+		sort(readings[dataSeg], readings[dataSeg] + DATA_POINTS);
+		out << "MIN " << LOW_HI_BOUND << ": ";
+		for (int i = 0; i < LOW_HI_BOUND; i++)
+			out << readings[dataSeg][i] << "F ";
+		out << "\n";
+		out << "MAX " << LOW_HI_BOUND << ": ";
+		for (int i = DATA_POINTS - LOW_HI_BOUND; i < DATA_POINTS; i++)
+			out << readings[dataSeg][i] << "F ";
+		out << "\n";
+
+		// Output difference window
+		out << "Largest difference window of " << largestDiff <<
+			"F detected in minute range [" <<
 			largestDiffIdx / SENSORS << ", " <<
 			(largestDiffIdx + (DIFF_INTERVAL * SENSORS)) / SENSORS <<
 			"]\n\n";
