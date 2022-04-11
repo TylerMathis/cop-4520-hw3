@@ -1,9 +1,9 @@
 run: BirthdayPresentsParty.java
 	javac BirthdayPresentsParty.java;
-	java BirthdayPresentsParty
+	java -ea BirthdayPresentsParty
 	rm *.class;
 
 verbose: BirthdayPresentsParty.java
 	javac BirthdayPresentsParty.java;
-	java BirthdayPresentsParty -verbose
+	java -ea BirthdayPresentsParty -verbose
 	rm *.class;

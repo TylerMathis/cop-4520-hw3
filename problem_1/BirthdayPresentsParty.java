@@ -63,6 +63,11 @@ class BirthdayPresentsParty {
 		}
 
 		System.out.println("Done with all thank you notes!");
+
+		// Assert that all presents have been thanked
+		for (int i = 0; i < NUM_PRESENTS; i++) {
+			assert !presentChain.contains(i) : "Presents still left";
+		}
 	}
 
 	// Main worker servant
@@ -119,8 +124,8 @@ class BirthdayPresentsParty {
 					if (myThankIndex >= NUM_PRESENTS)
 						return;
 
-					// We should wait until this present exists
-					while (myThankIndex >= addIndex.get());
+					// Wait until the present exists
+					while (!presentChain.contains(unsortedBag[myThankIndex]));
 
 					// Remove the present
 					presentChain.remove(unsortedBag[myThankIndex]);
