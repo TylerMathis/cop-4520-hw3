@@ -9,7 +9,7 @@ rm main
 
 The program will output all relevant data for each hour into a file called `results.txt`.
 
-NOTE: A time scalar will be asked for at runtime, larger values will make the simulation run more quickly.
+NOTE: A time scalar will be asked for at runtime, larger values will make the simulation run more quickly. A time scalar of `1` means time flows normally, one minute between readings. `2` means that the simulation will run twice as fast. For ease of grading, I would recommend a time scalar of `10,000`
 
 ## Proof of Correctness
 The generall idea behind this approach is to store all of our tempurature readings in a shared vector, so that it is easy to spin up an analysis thread to analyze the data after an "hour" has passed. In order to ensure that no thread is overwriting data, we utilize an atomic shared index that is incremented on each write. In order to ensure that each thread is taking it's readings at the same time, and no thread is getting ahead, we implement a condition variable that will wake up all write jobs at the same time for writing. Once the array is fully populated, it is time to analyze the data.

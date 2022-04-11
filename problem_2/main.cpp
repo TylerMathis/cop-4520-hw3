@@ -40,9 +40,14 @@ int main() {
 	srand(time(NULL));
 
 	// Ask for time multiplier
-	cout << "Please enter a time multiplier: ";
-	double timeMultiplier; cin >> timeMultiplier;
-	int sleepMillis = 1000 / timeMultiplier;
+	double timeMultiplier;
+	do {
+		cout << "Please enter a positive time multiplier: ";
+		cin >> timeMultiplier;
+	} while (timeMultiplier <= 0);
+
+	// One minute / multiplier
+	int sleepMillis = (1000 * 60) / timeMultiplier;
 
 	// Empty out results
 	ofstream out("results.txt");
@@ -148,6 +153,7 @@ int main() {
 			cout << "\r";
 			cout.flush();
 			cout << "Taking reading at time: " << curHour+1 << ":" << i+1;
+			cout.flush();
 			std::this_thread::sleep_for(std::chrono::milliseconds(sleepMillis));
 		}
 		cout << "\nLogging results for hour " << curHour+1 << " to file\n";
