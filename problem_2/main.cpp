@@ -42,9 +42,9 @@ int main() {
 	// Ask for time multiplier
 	double timeMultiplier;
 	do {
-		cout << "Please enter a positive time multiplier: ";
+		cout << "Please enter a positive time multiplier <= 10,000: ";
 		cin >> timeMultiplier;
-	} while (timeMultiplier <= 0);
+	} while (timeMultiplier <= 0 || timeMultiplier > 10'000);
 
 	// Ask for num hours
 	int numHours;
