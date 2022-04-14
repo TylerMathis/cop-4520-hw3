@@ -7,6 +7,8 @@ g++ main.cpp -std=c++17 -o main -pthread
 rm main
 ```
 
+There was a discrepency in the documentation and in the class Discord chat about whether or not our mins and maxs were supposed to be on unique values or all values, so this can be specified when `make`ing the application. Simply run with `make unique`, to force mins and maxs to compare on only unique elements when conducting analysis.
+
 The program will output all relevant data for each hour into a file called `results.txt`.
 
 NOTE: A time scalar will be asked for at runtime, larger values will make the simulation run more quickly. A time scalar of `1` means time flows normally, one minute between readings. `2` means that the simulation will run twice as fast. For ease of grading, I would recommend the max time scalar of `10,000`.

@@ -9,6 +9,7 @@
 #include <limits>
 #include <climits>
 #include <fstream>
+#include <string.h>
 
 using std::atomic;
 using std::mutex;
@@ -35,7 +36,12 @@ const int TEMP_UPPER = abs(LOW_TEMP) + HI_TEMP;
 mutex mtx;
 condition_variable cv;
 
-int main() {
+int main(int argc, char **argv) {
+	// Parse command-line args
+	bool unique_bounds = false;
+	if (argc > 1 && strcmp(argv[1], "-unique") == 0)
+		unique_bounds = true;
+
 	// Seed our num gen
 	srand(time(NULL));
 
@@ -126,25 +132,32 @@ int main() {
 		// Sort and get mins and maxes
 		sort(readings[dataSeg], readings[dataSeg] + DATA_POINTS);
 		vector<int> lows, highs;
-		int curLow = INT_MIN, curHigh = INT_MAX;
-		for (int i = 0; i < DATA_POINTS; i++) {
-			if (readings[dataSeg][i] > curLow) {
-				curLow = readings[dataSeg][i];
-				lows.push_back(curLow);
-				if (lows.size() >= LOW_HI_BOUND)
-					break;
+		if (unique_bounds) {
+			int curLow = INT_MIN, curHigh = INT_MAX;
+			for (int i = 0; i < DATA_POINTS; i++) {
+				if (readings[dataSeg][i] > curLow) {
+					curLow = readings[dataSeg][i];
+					lows.push_back(curLow);
+					if (lows.size() >= LOW_HI_BOUND)
+						break;
+				}
 			}
-		}
 
-		for (int i = DATA_POINTS - 1; i >= 0; i--) {
-			if (readings[dataSeg][i] < curHigh) {
-				curHigh = readings[dataSeg][i];
-				highs.push_back(curHigh);
-				if (highs.size() >= LOW_HI_BOUND)
-					break;
+			for (int i = DATA_POINTS - 1; i >= 0; i--) {
+				if (readings[dataSeg][i] < curHigh) {
+					curHigh = readings[dataSeg][i];
+					highs.push_back(curHigh);
+					if (highs.size() >= LOW_HI_BOUND)
+						break;
+				}
 			}
+			reverse(highs.begin(), highs.end());
+		} else {
+			for (int i = 0; i < LOW_HI_BOUND; i++)
+				lows.push_back(readings[dataSeg][i]);
+			for (int i = DATA_POINTS - LOW_HI_BOUND; i < DATA_POINTS; i++)
+				highs.push_back(readings[dataSeg][i]);
 		}
-		reverse(highs.begin(), highs.end());
 
 		out << "MIN " << LOW_HI_BOUND << ": ";
 		for (int t : lows)
