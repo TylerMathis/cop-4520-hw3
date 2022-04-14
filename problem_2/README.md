@@ -20,5 +20,5 @@ A single thread is then used to analyze the data. This thread runs concurrently 
 Efficiency analysis of the collection method is rather useless, as it is simply generating random numbers within our bound. This is an O(1) operation. The largest temp difference window runs in O(n), as we simply check every window, and then the 5 mins and maxes runs in O(nlogn) as we need to sort first. Sorting is not strictly required, but for the scope of this problem it is more than reasonable.
 
 ## Experimental Evaluation
-- Multiple time scalars were tested.
+- Multiple time scalars were tested (unreasonable time scalars 100,000x and above are not guarnateed to function properly, as this does not fit the context of the problem)
 - Data verification by hand

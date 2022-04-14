@@ -46,6 +46,13 @@ int main() {
 		cin >> timeMultiplier;
 	} while (timeMultiplier <= 0);
 
+	// Ask for num hours
+	int numHours;
+	do {
+		cout << "Please enter a positive number of hours to run for: ";
+		cin >> numHours;
+	} while (numHours <= 0);
+
 	// One minute / multiplier
 	int sleepMillis = (1000 * 60) / timeMultiplier;
 
@@ -62,7 +69,7 @@ int main() {
 	// Keep our current hour for dataframe swapping
 	atomic<int> curHour(0);
 	// Whether or not we should exit
-	atomic<bool> done = false;
+	atomic<bool> done(false);
 
 	// This is our main sensor simulator
 	// It waits for a notification from the main thread to take a reading,
@@ -73,7 +80,7 @@ int main() {
 			bool isInit = false;
 			while (curIter < READINGS_PER_CYCLE) {
 				{
-					unique_lock lk(mtx);
+					unique_lock<decltype(mtx)> lk(mtx);
 					// Let main know that we are ready
 					if (!isInit) {
 						isInit = true;
@@ -139,14 +146,13 @@ int main() {
 	};
 
 	// Start all sensors and wait for them to spin up
-	vector<thread> jobs;
+	vector<thread> jobs, analyzers;
 	for (int i = 0; i < SENSORS; i++)
 		jobs.emplace_back(tempWriteJob, i);
 	while (initCnt < SENSORS);
 
 	// Main temp loop
-	bool keepGoing = true;
-	while (keepGoing) {
+	while (curHour < numHours) {
 		// Take all readings
 		for (int i = 0; i < READINGS_PER_CYCLE; i++) {
 			cv.notify_all();
@@ -159,19 +165,8 @@ int main() {
 		cout << "\nLogging results for hour " << curHour+1 << " to file\n";
 
 		// Boot up the analyzer and let it run
-		thread analyzer(tempAnalyzeJob, curHour.load());
-		analyzer.detach();
+		analyzers.emplace_back(tempAnalyzeJob, curHour.load());
 		curHour++;
-
-		// Ask the user if they want to keep simulating
-		// In practice, this would not be done, but is for the
-		// sake of a clean exit
-		char choice;
-		do {
-			cout << "Keep simulating? (y\\n): ";
-			cin >> choice;
-		} while (!(choice == 'y' || choice == 'n'));
-		keepGoing = choice == 'y';
 	}
 
 	// Clean up the threads
@@ -179,6 +174,8 @@ int main() {
 	done = true;
 	cv.notify_all();
 	for (thread &t : jobs)
+		t.join();
+	for (thread &t : analyzers)
 		t.join();
 
 	cout << "Done! All results available in './results.txt'\n";
