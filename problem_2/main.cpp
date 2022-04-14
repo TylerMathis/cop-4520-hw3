@@ -125,13 +125,34 @@ int main() {
 
 		// Sort and get mins and maxes
 		sort(readings[dataSeg], readings[dataSeg] + DATA_POINTS);
+		vector<int> lows, highs;
+		int curLow = INT_MIN, curHigh = INT_MAX;
+		for (int i = 0; i < DATA_POINTS; i++) {
+			if (readings[dataSeg][i] > curLow) {
+				curLow = readings[dataSeg][i];
+				lows.push_back(curLow);
+				if (lows.size() >= LOW_HI_BOUND)
+					break;
+			}
+		}
+
+		for (int i = DATA_POINTS - 1; i >= 0; i--) {
+			if (readings[dataSeg][i] < curHigh) {
+				curHigh = readings[dataSeg][i];
+				highs.push_back(curHigh);
+				if (highs.size() >= LOW_HI_BOUND)
+					break;
+			}
+		}
+		reverse(highs.begin(), highs.end());
+
 		out << "MIN " << LOW_HI_BOUND << ": ";
-		for (int i = 0; i < LOW_HI_BOUND; i++)
-			out << readings[dataSeg][i] << "F ";
+		for (int t : lows)
+			out << t << "F ";
 		out << "\n";
 		out << "MAX " << LOW_HI_BOUND << ": ";
-		for (int i = DATA_POINTS - LOW_HI_BOUND; i < DATA_POINTS; i++)
-			out << readings[dataSeg][i] << "F ";
+		for (int t : highs)
+			out << t << "F ";
 		out << "\n";
 
 		// Output difference window
